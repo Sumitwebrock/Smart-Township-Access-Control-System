@@ -26,6 +26,13 @@ function dataURLtoBlob(dataURL: string): Blob {
   return new Blob([arr], { type: mime });
 }
 
+// Indian license plate format: KA 12 AB 1234 or KA12AB1234
+function validatePlateFormat(plate: string): boolean {
+  const cleaned = plate.replace(/\s|-/g, '').toUpperCase();
+  // Must be: 2 letters + 2 digits + 2 letters + 4 digits
+  return /^[A-Z]{2}\d{2}[A-Z]{2}\d{4}$/.test(cleaned);
+}
+
 export default function EmployeeRegistration() {
   const [formData, setFormData] = useState({
     name: '', house_number: '', rfid_tag: '', vehicle_number: '',
@@ -61,12 +68,20 @@ export default function EmployeeRegistration() {
       setCapturedFrame(null);
       setScanState('idle');
     } catch (err: any) {
-      setCameraError(err.message ?? 'Camera access denied.');
+      const msg = err.message ?? 'Camera access denied or not available.';
+      setCameraError(msg);
+      console.error('Camera error:', err);
+      // Page will still render with error message below
     }
   }, []);
 
   useEffect(() => {
-    startCamera();
+    // Don't block page rendering - start camera in background
+    const startCameraAsync = async () => {
+      await startCamera();
+    };
+    startCameraAsync().catch(console.error);
+
     return () => { streamRef.current?.getTracks().forEach((t) => t.stop()); };
   }, []); // eslint-disable-line
 
@@ -81,10 +96,14 @@ export default function EmployeeRegistration() {
     const video  = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return null;
-    canvas.width  = video.videoWidth  || 640;
-    canvas.height = video.videoHeight || 480;
+    const srcWidth = video.videoWidth || 640;
+    const srcHeight = video.videoHeight || 480;
+    const maxWidth = 960;
+    const scale = srcWidth > maxWidth ? maxWidth / srcWidth : 1;
+    canvas.width = Math.round(srcWidth * scale);
+    canvas.height = Math.round(srcHeight * scale);
     canvas.getContext('2d')!.drawImage(video, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', 0.92);
+    return canvas.toDataURL('image/jpeg', 0.8);
   }, []);
 
   // ── One-click: capture photo AND read plate ───────────────────────────
@@ -99,9 +118,9 @@ export default function EmployeeRegistration() {
       const fd   = new FormData();
       fd.append('image', blob, 'plate.jpg');
 
-      // Add 20-second timeout for OCR processing
+      // Add 90-second timeout for AI OCR (first load: ~30-60s, cached: ~2-5s)
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 20000);
+      const timeout = setTimeout(() => controller.abort(), 90000);
 
       const res = await fetch('/api/plate/scan-plate', { 
         method: 'POST', 
@@ -118,9 +137,10 @@ export default function EmployeeRegistration() {
     } catch (err: any) {
       if (err.name === 'AbortError') {
         setScanState('error');
-        alert('OCR scan timed out. Please try again.');
+        alert('⏱️ AI detection took too long (>90 seconds).\n\n✏️ Please enter the license plate manually below.');
       } else {
         setScanState('error');
+        alert('❌ AI detection failed.\n\n✏️ Please enter the license plate manually below.\n\nFormat: KA 12 AB 1234');
       }
     }
   }, [captureFrame]);
@@ -341,6 +361,36 @@ export default function EmployeeRegistration() {
                   </div>
                 )}
 
+                {/* OCR Error - Manual Input Fallback */}
+                {scanState === 'error' && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <AlertCircle className="w-5 h-5 text-red-600" />
+                      <span className="text-red-800 font-semibold">OCR failed – enter manually</span>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="e.g., KA 12 AB 1234"
+                      value={formData.vehicle_number}
+                      onChange={(e) => setFormData((p) => ({ ...p, vehicle_number: e.target.value.toUpperCase() }))}
+                      className="w-full px-3 py-2 border border-red-300 rounded-lg text-sm font-mono"
+                    />
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => {
+                          setScanState('idle');
+                          setCapturedFrame(null);
+                        }}
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Camera controls */}
                 <div className="flex gap-3">
                   {!capturedFrame ? (
@@ -397,13 +447,21 @@ export default function EmployeeRegistration() {
               minLength={4}
               maxLength={100}
             />
-            <Input
-              label="Vehicle Number (Optional)"
-              value={formData.vehicle_number}
-              onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value.toUpperCase() })}
-              placeholder="e.g., MH 12 AB 1234"
-              maxLength={50}
-            />
+            <div>
+              <Input
+                label="Vehicle Number (Optional)"
+                value={formData.vehicle_number}
+                onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value.toUpperCase() })}
+                placeholder="e.g., MH 12 AB 1234"
+                maxLength={50}
+              />
+              {formData.vehicle_number && !validatePlateFormat(formData.vehicle_number) && (
+                <p className="text-xs text-red-600 mt-1">⚠ Invalid format. Use: KA 12 AB 1234</p>
+              )}
+              {formData.vehicle_number && validatePlateFormat(formData.vehicle_number) && (
+                <p className="text-xs text-green-600 mt-1">✓ Valid plate format</p>
+              )}
+            </div>
           </section>
 
           {/* Submit button */}
