@@ -5,7 +5,7 @@ interface AlertCardProps {
   type: 'accident' | 'panic' | 'fire' | 'intrusion';
   location: string;
   time: string;
-  status: 'active' | 'resolved' | 'investigating';
+  status: 'open' | 'acknowledged' | 'resolved';
 }
 
 export function AlertCard({ type, location, time, status }: AlertCardProps) {
@@ -17,9 +17,9 @@ export function AlertCard({ type, location, time, status }: AlertCardProps) {
   };
 
   const statusConfig = {
-    active: { label: 'Active', color: 'danger' as const },
+    open: { label: 'Open', color: 'danger' as const },
+    acknowledged: { label: 'Acknowledged', color: 'warning' as const },
     resolved: { label: 'Resolved', color: 'success' as const },
-    investigating: { label: 'Investigating', color: 'warning' as const },
   };
 
   const config = typeConfig[type];

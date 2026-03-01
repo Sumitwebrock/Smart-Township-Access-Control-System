@@ -4,34 +4,56 @@ import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/Button';
 import { CreditCard, Camera, CheckCircle, XCircle, UserPlus } from 'lucide-react';
 import { Link } from 'react-router';
+import { rfidApi, entryLogsApi, type EntryLog, type Employee } from '../../lib/api';
 
-type AccessStatus = 'waiting' | 'scanned' | 'approved' | 'denied';
+type AccessStatus = 'waiting' | 'scanning' | 'approved' | 'denied';
 
 export default function GateControl() {
-  const [rfidStatus, setRfidStatus] = useState<'waiting' | 'scanned'>('waiting');
+  const [rfidInput, setRfidInput] = useState('');
   const [accessResult, setAccessResult] = useState<AccessStatus>('waiting');
-  const [currentPerson, setCurrentPerson] = useState<{name: string, house: string} | null>(null);
+  const [scanMessage, setScanMessage] = useState('');
+  const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
+  const [recentLogs, setRecentLogs] = useState<EntryLog[]>([]);
 
-  const recentEntries = [
-    { time: '09:23', name: 'Rajesh Kumar', house: 'A-204', status: 'approved' as const, gate: 'Gate 1' },
-    { time: '09:18', name: 'Priya Sharma', house: 'B-108', status: 'approved' as const, gate: 'Gate 2' },
-    { time: '09:15', name: 'Unknown', house: 'N/A', status: 'denied' as const, gate: 'Gate 1' },
-    { time: '09:10', name: 'Amit Patel', house: 'C-312', status: 'approved' as const, gate: 'Gate 1' },
-    { time: '09:05', name: 'Sita Mehta', house: 'A-105', status: 'approved' as const, gate: 'Gate 2' },
-  ];
+  const fetchRecentLogs = () => {
+    const today = new Date().toISOString().split('T')[0];
+    entryLogsApi.list({ from_date: today, to_date: today, limit: 10 })
+      .then(setRecentLogs)
+      .catch(() => {});
+  };
 
-  const simulateScan = () => {
-    setRfidStatus('scanned');
-    setCurrentPerson({ name: 'Rahul Verma', house: 'B-215' });
-    
+  useEffect(() => {
+    fetchRecentLogs();
+    const interval = setInterval(fetchRecentLogs, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleScan = async () => {
+    if (!rfidInput.trim()) return;
+    setAccessResult('scanning');
+    try {
+      const result = await rfidApi.scan(rfidInput.trim(), 'Gate 1');
+      if (result.access_granted) {
+        setAccessResult('approved');
+        setCurrentEmployee(result.employee ?? null);
+        setScanMessage(result.message);
+        fetchRecentLogs();
+      } else {
+        setAccessResult('denied');
+        setScanMessage(result.message);
+        setCurrentEmployee(null);
+      }
+    } catch (e: any) {
+      setAccessResult('denied');
+      setScanMessage(e.message ?? 'Scan failed');
+      setCurrentEmployee(null);
+    }
     setTimeout(() => {
-      setAccessResult('approved');
-      setTimeout(() => {
-        setRfidStatus('waiting');
-        setAccessResult('waiting');
-        setCurrentPerson(null);
-      }, 3000);
-    }, 1500);
+      setAccessResult('waiting');
+      setScanMessage('');
+      setCurrentEmployee(null);
+      setRfidInput('');
+    }, 3000);
   };
 
   return (
@@ -50,9 +72,12 @@ export default function GateControl() {
               Open Visitor Registration
             </Button>
           </Link>
-          <Button variant="secondary" size="lg">
-            View All Gates
-          </Button>
+          <Link to="/employee-registration" target="_blank">
+            <Button variant="secondary" size="lg">
+              <UserPlus className="w-5 h-5" />
+              Open Employee Registration
+            </Button>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
@@ -71,68 +96,71 @@ export default function GateControl() {
                 <div>
                   <p className="text-sm text-muted-foreground">RFID Status</p>
                   <p className="text-lg font-semibold text-foreground">
-                    {rfidStatus === 'waiting' ? 'Waiting for RFID...' : 'RFID Detected'}
+                    {accessResult === 'waiting' ? 'Waiting for RFID…' : accessResult === 'scanning' ? 'Processing…' : 'RFID Scanned'}
                   </p>
                 </div>
               </div>
 
-              {currentPerson && (
-                <>
-                  <div className="space-y-4 mb-6">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Person Name</p>
-                      <p className="text-2xl font-semibold text-foreground">{currentPerson.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">House Number</p>
-                      <p className="text-xl font-semibold text-foreground">{currentPerson.house}</p>
-                    </div>
+              {currentEmployee && (
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Person Name</p>
+                    <p className="text-2xl font-semibold text-foreground">{currentEmployee.name}</p>
                   </div>
-                </>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">House Number</p>
+                    <p className="text-xl font-semibold text-foreground">{currentEmployee.house_number}</p>
+                  </div>
+                </div>
               )}
 
               {accessResult === 'approved' && (
-                <div className="flex items-center gap-4 p-6 bg-green-50 border-2 border-green-500 rounded-[14px]">
+                <div className="flex items-center gap-4 p-6 bg-green-50 border-2 border-green-500 rounded-[14px] mb-4">
                   <CheckCircle className="w-12 h-12 text-success" />
                   <div>
                     <p className="text-2xl font-semibold text-success">ACCESS APPROVED</p>
-                    <p className="text-sm text-green-600">Gate opening...</p>
+                    <p className="text-sm text-green-600">{scanMessage}</p>
                   </div>
                 </div>
               )}
 
               {accessResult === 'denied' && (
-                <div className="flex items-center gap-4 p-6 bg-red-50 border-2 border-red-500 rounded-[14px]">
+                <div className="flex items-center gap-4 p-6 bg-red-50 border-2 border-red-500 rounded-[14px] mb-4">
                   <XCircle className="w-12 h-12 text-destructive" />
                   <div>
                     <p className="text-2xl font-semibold text-destructive">ACCESS DENIED</p>
-                    <p className="text-sm text-red-600">Unauthorized entry attempt</p>
+                    <p className="text-sm text-red-600">{scanMessage}</p>
                   </div>
                 </div>
               )}
 
-              {accessResult === 'waiting' && !currentPerson && (
-                <button 
-                  onClick={simulateScan}
-                  className="w-full p-6 border-2 border-dashed border-border rounded-[14px] text-muted-foreground hover:border-primary hover:text-primary hover:bg-blue-50 transition-all"
-                >
-                  Click to simulate RFID scan
-                </button>
+              {accessResult === 'waiting' && (
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={rfidInput}
+                    onChange={(e) => setRfidInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleScan()}
+                    placeholder="Enter RFID tag and press Enter or Scan"
+                    className="flex-1 px-4 py-3 bg-input border border-border text-foreground placeholder:text-muted-foreground rounded-[12px] focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  <Button variant="primary" onClick={handleScan} disabled={!rfidInput.trim()}>
+                    Scan
+                  </Button>
+                </div>
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="grid grid-cols-2 gap-4 text-center">
               <div className="p-4 bg-green-50 border border-green-200 rounded-[12px]">
-                <p className="text-2xl font-semibold text-success">1,234</p>
-                <p className="text-sm text-muted-foreground mt-1">Approved Today</p>
-              </div>
-              <div className="p-4 bg-red-50 border border-red-200 rounded-[12px]">
-                <p className="text-2xl font-semibold text-destructive">23</p>
-                <p className="text-sm text-muted-foreground mt-1">Denied Today</p>
+                <p className="text-2xl font-semibold text-success">
+                  {recentLogs.filter((l) => !l.exit_time).length}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">Currently Inside</p>
               </div>
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-[12px]">
-                <p className="text-2xl font-semibold text-primary">4</p>
-                <p className="text-sm text-muted-foreground mt-1">Gates Active</p>
+                <p className="text-2xl font-semibold text-primary">{recentLogs.length}</p>
+                <p className="text-sm text-muted-foreground mt-1">Today's Entries</p>
               </div>
             </div>
           </div>
@@ -151,19 +179,24 @@ export default function GateControl() {
         <div className="bg-card border border-border rounded-[16px] p-6 shadow-sm">
           <h3 className="text-base font-semibold text-foreground mb-4">Recent Entry Logs</h3>
           <div className="space-y-2">
-            {recentEntries.map((entry, index) => (
-              <div key={index} className="flex items-center justify-between p-4 bg-secondary rounded-[12px] hover:shadow-sm transition-shadow">
+            {recentLogs.length === 0 && (
+              <p className="text-sm text-muted-foreground">No entries today yet.</p>
+            )}
+            {recentLogs.map((log) => (
+              <div key={log.id} className="flex items-center justify-between p-4 bg-secondary rounded-[12px] hover:shadow-sm transition-shadow">
                 <div className="flex items-center gap-6">
-                  <span className="text-muted-foreground font-mono text-sm w-16">{entry.time}</span>
+                  <span className="text-muted-foreground font-mono text-sm w-20">
+                    {new Date(log.entry_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                   <div>
-                    <p className="font-medium text-foreground text-sm">{entry.name}</p>
-                    <p className="text-sm text-muted-foreground">{entry.house}</p>
+                    <p className="font-medium text-foreground text-sm capitalize">{log.person_type} #{log.person_id}</p>
+                    <p className="text-sm text-muted-foreground">{log.vehicle_number ?? '—'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className="text-sm text-muted-foreground">{entry.gate}</span>
-                  <StatusBadge status={entry.status === 'approved' ? 'success' : 'danger'} size="sm">
-                    {entry.status === 'approved' ? 'Approved' : 'Denied'}
+                  <span className="text-sm text-muted-foreground">{log.gate_id ?? '—'}</span>
+                  <StatusBadge status={log.exit_time ? 'success' : 'info'} size="sm">
+                    {log.exit_time ? 'Exited' : 'Inside'}
                   </StatusBadge>
                 </div>
               </div>

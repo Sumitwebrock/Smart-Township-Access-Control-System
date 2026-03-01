@@ -1,28 +1,33 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { TopBar } from '../components/TopBar';
 import { DataTable } from '../components/DataTable';
 import { StatusBadge } from '../components/StatusBadge';
+import { employeesApi, type Employee } from '../../lib/api';
 
 export default function Employees() {
-  const employees = [
-    { id: 1, name: 'Rajesh Kumar', empId: 'EMP001', house: 'A-204', department: 'Engineering', rfidStatus: 'active' },
-    { id: 2, name: 'Priya Sharma', empId: 'EMP002', house: 'B-108', department: 'HR', rfidStatus: 'active' },
-    { id: 3, name: 'Amit Patel', empId: 'EMP003', house: 'C-312', department: 'Operations', rfidStatus: 'active' },
-    { id: 4, name: 'Sita Mehta', empId: 'EMP004', house: 'A-105', department: 'Finance', rfidStatus: 'inactive' },
-    { id: 5, name: 'Ravi Kumar', empId: 'EMP005', house: 'D-401', department: 'IT', rfidStatus: 'active' },
-  ];
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    employeesApi.list({ limit: 200 })
+      .then(setEmployees)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   const columns = [
-    { key: 'empId', label: 'Employee ID' },
+    { key: 'id', label: 'Employee ID', render: (v: number) => `EMP${String(v).padStart(3, '0')}` },
     { key: 'name', label: 'Name' },
-    { key: 'house', label: 'House Number' },
-    { key: 'department', label: 'Department' },
+    { key: 'house_number', label: 'House Number' },
+    { key: 'rfid_tag', label: 'RFID Tag', render: (v: string) => <span className="font-mono text-sm">{v}</span> },
+    { key: 'vehicle_number', label: 'Vehicle', render: (v: string | null) => v ? <span className="font-mono">{v}</span> : <span className="text-muted-foreground">—</span> },
     {
-      key: 'rfidStatus',
+      key: 'is_active',
       label: 'RFID Status',
-      render: (value: string) => (
-        <StatusBadge status={value === 'active' ? 'success' : 'danger'} size="sm">
-          {value === 'active' ? 'Active' : 'Inactive'}
+      render: (value: boolean) => (
+        <StatusBadge status={value ? 'success' : 'danger'} size="sm">
+          {value ? 'Active' : 'Inactive'}
         </StatusBadge>
       ),
     },
@@ -30,10 +35,10 @@ export default function Employees() {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-secondary">
-      <TopBar 
-        title="Employees" 
-        subtitle="Manage employee access and RFID cards" 
-        showSearch 
+      <TopBar
+        title="Employees"
+        subtitle="Manage employee access and RFID cards"
+        showSearch
       />
 
       <main className="flex-1 overflow-y-auto p-8">
@@ -41,7 +46,9 @@ export default function Employees() {
           <p className="text-sm text-muted-foreground">Total Employees: <span className="font-semibold text-foreground">{employees.length}</span></p>
         </div>
 
-        <DataTable columns={columns} data={employees} />
+        {loading && <p className="text-muted-foreground text-sm">Loading employees…</p>}
+        {error && <p className="text-destructive text-sm">Failed to load: {error}</p>}
+        {!loading && !error && <DataTable columns={columns} data={employees} />}
       </main>
     </div>
   );

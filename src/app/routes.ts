@@ -4,6 +4,7 @@ import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import GateControl from './pages/GateControl';
 import VisitorRegistration from './pages/VisitorRegistration';
+import EmployeeRegistration from './pages/EmployeeRegistration';
 import Visitors from './pages/Visitors';
 import EntryLogs from './pages/EntryLogs';
 import Alerts from './pages/Alerts';
@@ -33,5 +34,9 @@ export const router = createBrowserRouter([
   {
     path: '/visitor-registration',
     Component: VisitorRegistration,
+  },
+  {
+    path: '/employee-registration',
+    Component: EmployeeRegistration,
   },
 ]);

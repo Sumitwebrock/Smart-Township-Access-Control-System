@@ -1,0 +1,26 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+
+# Database
+sqlalchemy==2.0.36
+# psycopg2-binary==2.9.10  # uncomment if switching to PostgreSQL
+alembic==1.14.0
+
+# Settings / validation
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# File uploads
+python-multipart==0.0.20
+
+# Number plate OCR
+easyocr
+opencv-python-headless
+
+# Utilities
+python-dotenv==1.0.1

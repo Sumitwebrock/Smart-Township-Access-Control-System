@@ -26,7 +26,7 @@ export default function Landing() {
         </div>
 
         {/* Main Action Cards */}
-        <div className="grid md:grid-cols-2 gap-8 mb-12">
+        <div className="grid md:grid-cols-3 gap-8 mb-12">
           {/* Admin Login Card */}
           <Link to="/admin">
             <div className="bg-white border-2 border-border hover:border-primary rounded-[16px] p-8 shadow-sm hover:shadow-lg transition-all cursor-pointer group">
@@ -53,6 +53,21 @@ export default function Landing() {
               </h2>
               <Button variant="success" size="lg" className="w-full">
                 Open Registration Terminal
+              </Button>
+            </div>
+          </Link>
+
+          {/* Employee Registration Card */}
+          <Link to="/employee-registration">
+            <div className="bg-white border-2 border-border hover:border-primary rounded-[16px] p-8 shadow-sm hover:shadow-lg transition-all cursor-pointer group">
+              <div className="flex items-center justify-center w-16 h-16 bg-blue-50 rounded-[14px] mb-6 group-hover:bg-primary group-hover:shadow-md transition-all">
+                <Shield className="w-8 h-8 text-primary group-hover:text-primary-foreground transition-colors" />
+              </div>
+              <h2 className="text-2xl font-semibold text-foreground mb-6">
+                Employee Registration
+              </h2>
+              <Button variant="primary" size="lg" className="w-full">
+                Add Employee
               </Button>
             </div>
           </Link>

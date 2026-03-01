@@ -1,24 +1,29 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { TopBar } from '../components/TopBar';
 import { DataTable } from '../components/DataTable';
 import { Button } from '../components/Button';
 import { StatusBadge } from '../components/StatusBadge';
+import { visitorsApi, type Visitor } from '../../lib/api';
 
 export default function Visitors() {
-  const [visitors, setVisitors] = useState([
-    { id: 1, name: 'Amit Kumar', phone: '+91 98765 43210', vehicle: 'MH 12 AB 1234', visitCount: 15, status: 'allowed' },
-    { id: 2, name: 'Priya Sharma', phone: '+91 98765 43211', vehicle: 'MH 12 CD 5678', visitCount: 8, status: 'allowed' },
-    { id: 3, name: 'Ravi Patel', phone: '+91 98765 43212', vehicle: 'GJ 01 EF 9012', visitCount: 22, status: 'allowed' },
-    { id: 4, name: 'Suspicious Person', phone: '+91 98765 43213', vehicle: 'UP 80 GH 3456', visitCount: 1, status: 'blocked' },
-    { id: 5, name: 'Sita Devi', phone: '+91 98765 43214', vehicle: 'DL 03 IJ 7890', visitCount: 12, status: 'allowed' },
-  ]);
+  const [visitors, setVisitors] = useState<Visitor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleToggleStatus = (id: number) => {
-    setVisitors(visitors.map(visitor => 
-      visitor.id === id 
-        ? { ...visitor, status: visitor.status === 'allowed' ? 'blocked' : 'allowed' }
-        : visitor
-    ));
+  useEffect(() => {
+    visitorsApi.list({ limit: 200 })
+      .then(setVisitors)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleToggleStatus = async (id: number, currentlyBlocked: boolean) => {
+    try {
+      const updated = await visitorsApi.update(id, { is_blocked: !currentlyBlocked });
+      setVisitors((prev) => prev.map((v) => (v.id === id ? updated : v)));
+    } catch (e: any) {
+      alert('Failed to update: ' + e.message);
+    }
   };
 
   const columns = [
@@ -31,34 +36,34 @@ export default function Visitors() {
       label: 'Phone Number',
     },
     {
-      key: 'vehicle',
+      key: 'vehicle_number',
       label: 'Vehicle Number',
-      render: (value: string) => <span className="font-mono">{value}</span>,
+      render: (value: string | null) => value ? <span className="font-mono">{value}</span> : <span className="text-muted-foreground">—</span>,
     },
     {
-      key: 'visitCount',
+      key: 'visit_count',
       label: 'Visit Count',
       render: (value: number) => <span className="font-semibold">{value}</span>,
     },
     {
-      key: 'status',
+      key: 'is_blocked',
       label: 'Status',
-      render: (value: string) => (
-        <StatusBadge status={value === 'allowed' ? 'success' : 'danger'} size="sm">
-          {value === 'allowed' ? 'Allowed' : 'Blocked'}
+      render: (value: boolean) => (
+        <StatusBadge status={!value ? 'success' : 'danger'} size="sm">
+          {!value ? 'Allowed' : 'Blocked'}
         </StatusBadge>
       ),
     },
     {
       key: 'action',
       label: 'Action',
-      render: (_: any, row: any) => (
+      render: (_: any, row: Visitor) => (
         <Button
-          variant={row.status === 'allowed' ? 'danger' : 'success'}
+          variant={row.is_blocked ? 'success' : 'danger'}
           size="sm"
-          onClick={() => handleToggleStatus(row.id)}
+          onClick={() => handleToggleStatus(row.id, row.is_blocked)}
         >
-          {row.status === 'allowed' ? 'Block' : 'Unblock'}
+          {row.is_blocked ? 'Unblock' : 'Block'}
         </Button>
       ),
     },
@@ -80,7 +85,9 @@ export default function Visitors() {
           <Button variant="primary">Add New Visitor</Button>
         </div>
 
-        <DataTable columns={columns} data={visitors} />
+        {loading && <p className="text-muted-foreground text-sm">Loading visitors…</p>}
+        {error && <p className="text-destructive text-sm">Failed to load: {error}</p>}
+        {!loading && !error && <DataTable columns={columns} data={visitors} />}
       </main>
     </div>
   );

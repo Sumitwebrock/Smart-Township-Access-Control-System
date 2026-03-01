@@ -1,27 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { TopBar } from '../components/TopBar';
-import { Clock, LogIn, UserCheck, XCircle, DoorOpen } from 'lucide-react';
-
-const allActivities = [
-  { time: '09:23 AM', date: 'Today', event: 'Gate 1 - Access Granted', person: 'Rajesh Kumar', house: 'A-204', type: 'granted' },
-  { time: '09:18 AM', date: 'Today', event: 'Gate 2 - Visitor Entry', person: 'Priya Sharma', house: 'B-108', type: 'visitor' },
-  { time: '09:15 AM', date: 'Today', event: 'Gate 1 - Access Denied', person: 'Unknown Vehicle', house: 'N/A', type: 'denied' },
-  { time: '09:10 AM', date: 'Today', event: 'Gate 1 - Access Granted', person: 'Amit Patel', house: 'C-312', type: 'granted' },
-  { time: '09:05 AM', date: 'Today', event: 'Gate 2 - Access Granted', person: 'Sita Mehta', house: 'A-105', type: 'granted' },
-  { time: '08:55 AM', date: 'Today', event: 'Gate 3 - Access Granted', person: 'Vikram Singh', house: 'D-201', type: 'granted' },
-  { time: '08:47 AM', date: 'Today', event: 'Gate 1 - Visitor Entry', person: 'Neha Gupta', house: 'B-302', type: 'visitor' },
-  { time: '08:40 AM', date: 'Today', event: 'Gate 2 - Access Denied', person: 'Unregistered Vehicle', house: 'N/A', type: 'denied' },
-  { time: '08:33 AM', date: 'Today', event: 'Gate 4 - Access Granted', person: 'Sunita Rao', house: 'C-110', type: 'granted' },
-  { time: '08:21 AM', date: 'Today', event: 'Gate 1 - Access Granted', person: 'Mohan Das', house: 'A-408', type: 'granted' },
-  { time: '11:50 PM', date: 'Yesterday', event: 'Gate 2 - Access Granted', person: 'Karan Verma', house: 'B-215', type: 'granted' },
-  { time: '11:30 PM', date: 'Yesterday', event: 'Gate 1 - Access Denied', person: 'Unknown Person', house: 'N/A', type: 'denied' },
-  { time: '10:45 PM', date: 'Yesterday', event: 'Gate 3 - Access Granted', person: 'Pooja Nair', house: 'D-104', type: 'granted' },
-  { time: '09:20 PM', date: 'Yesterday', event: 'Gate 1 - Visitor Entry', person: 'Delivery Personnel', house: 'C-205', type: 'visitor' },
-  { time: '06:15 PM', date: 'Yesterday', event: 'Gate 4 - Access Granted', person: 'Ravi Kumar', house: 'A-310', type: 'granted' },
-];
+import { Clock, LogIn, UserCheck, XCircle } from 'lucide-react';
+import { entryLogsApi, type EntryLog } from '../../lib/api';
 
 const typeConfig = {
-  granted: {
+  employee: {
     label: 'Access Granted',
     icon: LogIn,
     bg: 'bg-green-50 border-green-200',
@@ -37,34 +20,56 @@ const typeConfig = {
     iconColor: 'text-blue-600',
     badge: 'bg-blue-100 text-blue-700',
   },
-  denied: {
-    label: 'Access Denied',
-    icon: XCircle,
-    bg: 'bg-red-50 border-red-200',
-    iconBg: 'bg-red-100',
-    iconColor: 'text-red-600',
-    badge: 'bg-red-100 text-red-700',
-  },
 };
 
-type FilterType = 'all' | 'granted' | 'visitor' | 'denied';
+type FilterType = 'all' | 'employee' | 'visitor';
+
+function toDisplayDate(input: string): Date {
+  if (!input) return new Date();
+
+  const hasTimezone = /[zZ]|[+\-]\d{2}:\d{2}$/.test(input);
+  const normalized = input.includes('T') ? input : input.replace(' ', 'T');
+  const iso = hasTimezone ? normalized : `${normalized}Z`;
+
+  return new Date(iso);
+}
 
 export default function Recent() {
+  const [logs, setLogs] = useState<EntryLog[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>('all');
 
-  const filtered = filter === 'all' ? allActivities : allActivities.filter(a => a.type === filter);
+  useEffect(() => {
+    entryLogsApi.list({ limit: 100 })
+      .then(setLogs)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+    const interval = setInterval(() => {
+      entryLogsApi.list({ limit: 100 }).then(setLogs).catch(() => {});
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const grouped: Record<string, typeof allActivities> = {};
-  filtered.forEach(act => {
-    if (!grouped[act.date]) grouped[act.date] = [];
-    grouped[act.date].push(act);
+  const filtered = filter === 'all' ? logs : logs.filter((l) => l.person_type === filter);
+
+  // Group by date label
+  const grouped: Record<string, EntryLog[]> = {};
+  const today = new Date().toDateString();
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  filtered.forEach((log) => {
+    const d = toDisplayDate(log.entry_time).toDateString();
+    const label = d === today ? 'Today' : d === yesterday ? 'Yesterday' : d;
+    if (!grouped[label]) grouped[label] = [];
+    grouped[label].push(log);
   });
 
+  const employeeCount = logs.filter((l) => l.person_type === 'employee').length;
+  const visitorCount = logs.filter((l) => l.person_type === 'visitor').length;
+
   const filters: { key: FilterType; label: string; count: number }[] = [
-    { key: 'all', label: 'All', count: allActivities.length },
-    { key: 'granted', label: 'Access Granted', count: allActivities.filter(a => a.type === 'granted').length },
-    { key: 'visitor', label: 'Visitor Entry', count: allActivities.filter(a => a.type === 'visitor').length },
-    { key: 'denied', label: 'Access Denied', count: allActivities.filter(a => a.type === 'denied').length },
+    { key: 'all', label: 'All', count: logs.length },
+    { key: 'employee', label: 'Access Granted', count: employeeCount },
+    { key: 'visitor', label: 'Visitor Entry', count: visitorCount },
   ];
 
   return (
@@ -82,10 +87,8 @@ export default function Recent() {
               <LogIn className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground font-medium">Access Granted</p>
-              <p className="text-2xl font-semibold text-foreground">
-                {allActivities.filter(a => a.type === 'granted').length}
-              </p>
+              <p className="text-sm text-muted-foreground font-medium">Employee Entries</p>
+              <p className="text-2xl font-semibold text-foreground">{employeeCount}</p>
             </div>
           </div>
           <div className="bg-card border border-blue-200 rounded-[16px] p-5 shadow-sm flex items-center gap-4">
@@ -94,27 +97,23 @@ export default function Recent() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground font-medium">Visitor Entries</p>
-              <p className="text-2xl font-semibold text-foreground">
-                {allActivities.filter(a => a.type === 'visitor').length}
-              </p>
+              <p className="text-2xl font-semibold text-foreground">{visitorCount}</p>
             </div>
           </div>
-          <div className="bg-card border border-red-200 rounded-[16px] p-5 shadow-sm flex items-center gap-4">
-            <div className="w-11 h-11 bg-red-100 rounded-[12px] flex items-center justify-center">
-              <XCircle className="w-5 h-5 text-red-600" />
+          <div className="bg-card border border-amber-200 rounded-[16px] p-5 shadow-sm flex items-center gap-4">
+            <div className="w-11 h-11 bg-amber-100 rounded-[12px] flex items-center justify-center">
+              <XCircle className="w-5 h-5 text-amber-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground font-medium">Access Denied</p>
-              <p className="text-2xl font-semibold text-foreground">
-                {allActivities.filter(a => a.type === 'denied').length}
-              </p>
+              <p className="text-sm text-muted-foreground font-medium">Still Inside</p>
+              <p className="text-2xl font-semibold text-foreground">{logs.filter((l) => !l.exit_time).length}</p>
             </div>
           </div>
         </div>
 
         {/* Filter Tabs */}
         <div className="flex gap-2 mb-6 flex-wrap">
-          {filters.map(f => (
+          {filters.map((f) => (
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
@@ -125,11 +124,7 @@ export default function Recent() {
               }`}
             >
               {f.label}
-              <span
-                className={`text-xs px-1.5 py-0.5 rounded-full ${
-                  filter === f.key ? 'bg-white/20 text-white' : 'bg-secondary text-muted-foreground'
-                }`}
-              >
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${filter === f.key ? 'bg-white/20 text-white' : 'bg-secondary text-muted-foreground'}`}>
                 {f.count}
               </span>
             </button>
@@ -145,7 +140,9 @@ export default function Recent() {
             </h3>
           </div>
 
-          {Object.keys(grouped).length === 0 ? (
+          {loading ? (
+            <div className="p-12 text-center text-muted-foreground text-sm">Loading…</div>
+          ) : Object.keys(grouped).length === 0 ? (
             <div className="p-12 text-center text-muted-foreground text-sm">No events found.</div>
           ) : (
             Object.entries(grouped).map(([date, activities]) => (
@@ -154,36 +151,33 @@ export default function Recent() {
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{date}</span>
                 </div>
                 <div className="divide-y divide-border">
-                  {activities.map((activity, index) => {
-                    const cfg = typeConfig[activity.type as keyof typeof typeConfig];
+                  {activities.map((log) => {
+                    const cfg = typeConfig[log.person_type] ?? typeConfig.employee;
                     const Icon = cfg.icon;
                     return (
-                      <div
-                        key={index}
-                        className="flex items-start gap-4 px-6 py-4 hover:bg-secondary/50 transition-colors"
-                      >
+                      <div key={log.id} className="flex items-start gap-4 px-6 py-4 hover:bg-secondary/50 transition-colors">
                         <div className={`w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0 ${cfg.iconBg}`}>
                           <Icon className={`w-4 h-4 ${cfg.iconColor}`} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-medium text-foreground">{activity.event}</p>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cfg.badge}`}>
-                              {cfg.label}
-                            </span>
+                            <p className="text-sm font-medium text-foreground capitalize">
+                              {log.gate_id ?? 'Gate'} – {log.person_type} entry
+                            </p>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cfg.badge}`}>{cfg.label}</span>
                           </div>
                           <p className="text-sm text-muted-foreground mt-0.5">
-                            {activity.person}
-                            {activity.house !== 'N/A' && (
-                              <span className="ml-2 text-xs bg-secondary border border-border px-2 py-0.5 rounded-full">
-                                {activity.house}
+                            Person #{log.person_id}
+                            {log.vehicle_number && (
+                              <span className="ml-2 text-xs bg-secondary border border-border px-2 py-0.5 rounded-full font-mono">
+                                {log.vehicle_number}
                               </span>
                             )}
                           </p>
                         </div>
                         <div className="text-xs text-muted-foreground font-medium whitespace-nowrap flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          {activity.time}
+                          {toDisplayDate(log.entry_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
                       </div>
                     );
@@ -197,3 +191,4 @@ export default function Recent() {
     </div>
   );
 }
+
