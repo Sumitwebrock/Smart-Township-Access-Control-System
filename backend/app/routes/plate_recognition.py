@@ -17,9 +17,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/plate", tags=["Plate Recognition"])
 
-# ---------------------------------------------------------------------------
-# Global OCR reader (lazy-loaded, shared across requests)
-# ---------------------------------------------------------------------------
 _reader = None
 _reader_lock = asyncio.Lock()
 

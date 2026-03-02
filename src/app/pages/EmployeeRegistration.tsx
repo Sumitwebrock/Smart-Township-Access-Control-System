@@ -55,9 +55,48 @@ export default function EmployeeRegistration() {
   const startCamera = useCallback(async () => {
     setCameraError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Camera API is not available in this browser.');
+      }
+
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+
+      const constraints: MediaStreamConstraints[] = [
+        {
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        },
+        {
+          video: {
+            facingMode: { ideal: 'user' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        },
+        { video: true, audio: false },
+      ];
+
+      let stream: MediaStream | null = null;
+      let lastError: unknown = null;
+
+      for (const constraint of constraints) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraint);
+          break;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      if (!stream) {
+        throw lastError ?? new Error('No camera found on this device.');
+      }
+
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -69,6 +108,7 @@ export default function EmployeeRegistration() {
       setScanState('idle');
     } catch (err: any) {
       const msg = err.message ?? 'Camera access denied or not available.';
+      setCameraActive(false);
       setCameraError(msg);
       console.error('Camera error:', err);
       // Page will still render with error message below
