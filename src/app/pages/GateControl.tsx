@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TopBar } from '../components/TopBar';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/Button';
-import { CreditCard, Camera, CheckCircle, XCircle, UserPlus } from 'lucide-react';
+import { CreditCard, Camera, CheckCircle, XCircle, UserPlus, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router';
 import { rfidApi, entryLogsApi, type EntryLog, type Employee } from '../../lib/api';
 
@@ -14,6 +14,9 @@ export default function GateControl() {
   const [scanMessage, setScanMessage] = useState('');
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
   const [recentLogs, setRecentLogs] = useState<EntryLog[]>([]);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraLoading, setCameraLoading] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const fetchRecentLogs = () => {
     const today = new Date().toISOString().split('T')[0];
@@ -26,6 +29,43 @@ export default function GateControl() {
     fetchRecentLogs();
     const interval = setInterval(fetchRecentLogs, 15000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Initialize camera feed
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+
+    const startCamera = async () => {
+      try {
+        setCameraLoading(true);
+        setCameraError(null);
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'user'
+          } 
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        setCameraLoading(false);
+      } catch (err: any) {
+        console.error('Camera access error:', err);
+        setCameraError(err.name === 'NotAllowedError' 
+          ? 'Camera access denied. Please allow camera permissions.'
+          : 'Unable to access camera. Please check your device.');
+        setCameraLoading(false);
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
   }, []);
 
   const handleScan = async () => {
@@ -168,8 +208,31 @@ export default function GateControl() {
           {/* Live Camera Feed */}
           <div className="bg-card border border-border rounded-[16px] p-6 shadow-sm">
             <h3 className="text-base font-semibold text-foreground mb-4">Live Camera Feed</h3>
-            <div className="aspect-[3/4] bg-secondary rounded-[14px] flex items-center justify-center mb-4 border border-border">
-              <Camera className="w-16 h-16 text-muted-foreground" />
+            <div className="relative w-full h-64 bg-secondary rounded-[14px] overflow-hidden mb-4 border border-border">
+              {cameraLoading && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <Camera className="w-12 h-12 text-muted-foreground animate-pulse mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Loading camera...</p>
+                  </div>
+                </div>
+              )}
+              {cameraError && (
+                <div className="absolute inset-0 flex items-center justify-center p-4">
+                  <div className="text-center">
+                    <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-2" />
+                    <p className="text-sm text-destructive">{cameraError}</p>
+                  </div>
+                </div>
+              )}
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+                style={{ display: cameraLoading || cameraError ? 'none' : 'block' }}
+              />
             </div>
             <p className="text-sm text-center text-muted-foreground">Gate 1 - Main Entrance</p>
           </div>
