@@ -26,14 +26,14 @@ export default function Landing() {
         </div>
 
         {/* Main Action Cards */}
-        <div className="grid md:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
           {/* Admin Login Card */}
           <Link to="/admin">
-            <div className="bg-white border-2 border-border hover:border-primary rounded-[16px] p-8 shadow-sm hover:shadow-lg transition-all cursor-pointer group">
+            <div className="bg-white border-2 border-border hover:border-primary rounded-[16px] p-8 shadow-sm hover:shadow-lg transition-all cursor-pointer group h-full flex flex-col">
               <div className="flex items-center justify-center w-16 h-16 bg-blue-50 rounded-[14px] mb-6 group-hover:bg-primary group-hover:shadow-md transition-all">
                 <DoorOpen className="w-8 h-8 text-primary group-hover:text-primary-foreground transition-colors" />
               </div>
-              <h2 className="text-2xl font-semibold text-foreground mb-6">
+              <h2 className="text-2xl font-semibold text-foreground mb-6 flex-grow">
                 Admin Login
               </h2>
               <Button variant="primary" size="lg" className="w-full">
@@ -44,11 +44,11 @@ export default function Landing() {
 
           {/* Visitor Access Card */}
           <Link to="/visitor-registration">
-            <div className="bg-white border-2 border-border hover:border-success rounded-[16px] p-8 shadow-sm hover:shadow-lg transition-all cursor-pointer group">
+            <div className="bg-white border-2 border-border hover:border-success rounded-[16px] p-8 shadow-sm hover:shadow-lg transition-all cursor-pointer group h-full flex flex-col">
               <div className="flex items-center justify-center w-16 h-16 bg-green-50 rounded-[14px] mb-6 group-hover:bg-success group-hover:shadow-md transition-all">
                 <UserCheck className="w-8 h-8 text-success group-hover:text-success-foreground transition-colors" />
               </div>
-              <h2 className="text-2xl font-semibold text-foreground mb-6">
+              <h2 className="text-2xl font-semibold text-foreground mb-6 flex-grow">
                 Visitor Registration
               </h2>
               <Button variant="success" size="lg" className="w-full">
@@ -59,11 +59,11 @@ export default function Landing() {
 
           {/* Employee Registration Card */}
           <Link to="/employee-registration">
-            <div className="bg-white border-2 border-border hover:border-primary rounded-[16px] p-8 shadow-sm hover:shadow-lg transition-all cursor-pointer group">
+            <div className="bg-white border-2 border-border hover:border-primary rounded-[16px] p-8 shadow-sm hover:shadow-lg transition-all cursor-pointer group h-full flex flex-col">
               <div className="flex items-center justify-center w-16 h-16 bg-blue-50 rounded-[14px] mb-6 group-hover:bg-primary group-hover:shadow-md transition-all">
                 <Shield className="w-8 h-8 text-primary group-hover:text-primary-foreground transition-colors" />
               </div>
-              <h2 className="text-2xl font-semibold text-foreground mb-6">
+              <h2 className="text-2xl font-semibold text-foreground mb-6 flex-grow">
                 Employee Registration
               </h2>
               <Button variant="primary" size="lg" className="w-full">
