@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.models import Visitor, VisitorStatus, GateType, EntryLog, PersonType
+from app.models import Visitor, VisitorLog, VisitorStatus, GateType, EntryLog, PersonType
 from app.schemas import (
     VisitorResponse, VisitorUpdate, MessageResponse
 )

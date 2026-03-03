@@ -36,6 +36,22 @@ class AlertStatus(str, enum.Enum):
     resolved = "resolved"
 
 
+class GateType(str, enum.Enum):
+    """Gate types for RFID entry/exit system"""
+    ENTRY = "ENTRY"
+    EXIT = "EXIT"
+
+
+class VisitorStatus(str, enum.Enum):
+    """Visitor approval and entry status workflow"""
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    INSIDE = "INSIDE"
+    EXITED = "EXITED"
+    DENIED = "DENIED"
+    EXPIRED = "EXPIRED"
+
+
 # ---------------------------------------------------------------------------
 # Employee
 # ---------------------------------------------------------------------------
@@ -74,16 +90,43 @@ class FamilyMember(Base):
 # Visitor
 # ---------------------------------------------------------------------------
 class Visitor(Base):
+    """Enhanced Visitor Management with Professional Approval Workflow"""
     __tablename__ = "visitors"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False, index=True)
-    phone = Column(String(20), nullable=False)
-    house_number = Column(String(50), nullable=False)
+    phone = Column(String(20), nullable=False, index=True)
+    visiting_flat = Column(String(50), nullable=True, index=True)
     vehicle_number = Column(String(50), nullable=True, index=True)
+    
+    # RFID Integration
+    rfid_tag = Column(String(100), unique=True, nullable=True, index=True)
+    
+    # Status Workflow
+    status = Column(Enum(VisitorStatus), default=VisitorStatus.PENDING, nullable=True, index=True)
+    
+    # Security & Access Control
+    is_blacklisted = Column(Boolean, default=False, nullable=False, index=True)
+    inside = Column(Boolean, default=False, nullable=False, index=True)
+    
+    # Time-based Access Control
+    valid_from = Column(DateTime(timezone=True), nullable=True, index=True)
+    valid_till = Column(DateTime(timezone=True), nullable=True, index=True)
+    
+    # Metadata
+    snapshot_path = Column(Text, nullable=True)
+    purpose = Column(Text, nullable=True)
+    remarks = Column(Text, nullable=True)
+    
+    # Legacy compatibility
     photo_path = Column(Text, nullable=True)
     visit_count = Column(Integer, default=1, nullable=False)
     is_blocked = Column(Boolean, default=False, nullable=False)
+    house_number = Column(String(50), nullable=True)
+    
+    # Audit fields
+    approved_by = Column(String(200), nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime(timezone=True),
