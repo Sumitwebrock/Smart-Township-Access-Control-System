@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { TopBar } from '../components/TopBar';
 import { DataTable } from '../components/DataTable';
 import { StatusBadge } from '../components/StatusBadge';
+import { Button } from '../components/Button';
+import { Link } from 'react-router';
+import { UserPlus } from 'lucide-react';
 import { employeesApi, type Employee } from '../../lib/api';
 
 export default function Employees() {
@@ -42,8 +45,16 @@ export default function Employees() {
       />
 
       <main className="flex-1 overflow-y-auto p-8">
-        <div className="mb-6">
-          <p className="text-sm text-muted-foreground">Total Employees: <span className="font-semibold text-foreground">{employees.length}</span></p>
+        <div className="mb-6 flex justify-between items-center">
+          <div>
+            <p className="text-sm text-muted-foreground">Total Employees: <span className="font-semibold text-foreground">{employees.length}</span></p>
+          </div>
+          <Link to="/employee-registration" target="_blank">
+            <Button variant="primary">
+              <UserPlus className="w-4 h-4" />
+              Register New Employee
+            </Button>
+          </Link>
         </div>
 
         {loading && <p className="text-muted-foreground text-sm">Loading employees…</p>}
